@@ -33,14 +33,14 @@ export const DEFAULT_PROFILES: ApiProfile[] = [
     name: 'Google Gemini (Native)',
     provider: 'gemini',
     apiKey: '',
-    model: 'gemini-2.5-flash'
+    model: 'gemini-3.7-flash'
   },
   {
     id: 'openai-default',
-    name: 'OpenAI GPT-4o',
+    name: 'OpenAI GPT-4o-mini',
     provider: 'openai',
     apiKey: '',
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     baseUrl: 'https://api.openai.com/v1'
   },
   {

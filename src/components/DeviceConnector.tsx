@@ -399,7 +399,14 @@ export function DeviceConnector({
                           {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>
                       </div>
-                      <p className="font-mono break-words whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <div className="font-mono break-words whitespace-pre-wrap leading-relaxed">
+                        {msg.content.split(/(\*\*.*?\*\*)/g).map((part: string, i: number) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={i} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+                          }
+                          return part;
+                        })}
+                      </div>
                     </div>
                   );
                 })}

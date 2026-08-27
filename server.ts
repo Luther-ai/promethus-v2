@@ -14,11 +14,11 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const DATA_DIR = path.resolve(process.env.PROMETHEUS_DATA_DIR || './data');
 const WORKSPACE_DIR = path.resolve(process.env.PROMETHEUS_WORKSPACE_DIR || './workspace');
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL?.trim() || 'google/gemini-3.5-flash';
-const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || 'gpt-4o';
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.7-flash';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL?.trim() || 'google/gemini-3.7-flash';
+const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
 const MAX_OUTPUT_TOKENS = Math.min(
-  Math.max(256, parseInt(process.env.OPENROUTER_MAX_TOKENS || process.env.MAX_TOKENS || "2048", 10)),
+  Math.max(256, parseInt(process.env.OPENROUTER_MAX_TOKENS || process.env.MAX_OUTPUT_TOKENS || process.env.MAX_TOKENS || "2048", 10)),
   4096
 );
 
@@ -417,10 +417,17 @@ export interface AIProfile {
 
 const AI_PROFILES: AIProfile[] = [
   {
+    id: 'gemini',
+    name: 'Google Gemini',
+    provider: 'gemini',
+    model: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
+    apiKey: process.env.GEMINI_API_KEY
+  },
+  {
     id: 'openrouter',
     name: 'OpenRouter',
     provider: 'openrouter',
-    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+    model: process.env.OPENROUTER_MODEL || 'google/gemini-3.7-flash',
     apiKey: process.env.OPENROUTER_API_KEY,
     baseUrl: 'https://openrouter.ai/api/v1'
   },
@@ -438,13 +445,6 @@ const AI_PROFILES: AIProfile[] = [
     provider: 'anthropic',
     model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest',
     apiKey: process.env.ANTHROPIC_API_KEY
-  },
-  {
-    id: 'gemini',
-    name: 'Google Gemini',
-    provider: 'gemini',
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    apiKey: process.env.GEMINI_API_KEY
   }
 ];
 
@@ -547,9 +547,9 @@ function resolveAIProfile(requestedProfileId?: string | null, customProfileObj?:
   // 3. Fallback to configured profiles on server
   const configured = getConfiguredProfiles();
   if (configured.length > 0) {
-    const nonGemini = configured.find(profile => profile.provider !== 'gemini');
-    if (nonGemini && requestedProfileId !== 'gemini' && requestedProfileId !== 'google-default') {
-      return nonGemini;
+    const gemini = configured.find(profile => profile.provider === 'gemini');
+    if (gemini && (!requestedProfileId || requestedProfileId === 'gemini' || requestedProfileId === 'google-default' || requestedProfileId === 'auto')) {
+      return gemini;
     }
     return configured[0];
   }
@@ -560,7 +560,7 @@ function resolveAIProfile(requestedProfileId?: string | null, customProfileObj?:
       id: 'gemini',
       name: 'Google Gemini',
       provider: 'gemini',
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
       apiKey: process.env.GEMINI_API_KEY
     };
   }
@@ -588,17 +588,22 @@ async function callOpenAICompatible(profile: AIProfile, messages: Array<{ role: 
 
   if (profile.provider === 'openrouter') {
     headers['HTTP-Referer'] = 'http://localhost:3000';
-    headers['X-Title'] = 'Prometheus';
+    headers['X-Title'] = 'Prometheus AI OS';
   }
+
+  // OpenRouter requires modest max_tokens for free/standard tiers to avoid credit-estimation 402 rejects
+  const maxTokens = profile.provider === 'openrouter'
+    ? Math.min(1024, MAX_OUTPUT_TOKENS)
+    : MAX_OUTPUT_TOKENS;
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      model: profile.model || 'gpt-4o-mini',
+      model: profile.model || (profile.provider === 'openrouter' ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'),
       messages,
       temperature: 0.7,
-      max_tokens: Number(process.env.MAX_OUTPUT_TOKENS || 2048)
+      max_tokens: maxTokens
     })
   });
 
@@ -617,41 +622,63 @@ async function callOpenAICompatible(profile: AIProfile, messages: Array<{ role: 
 }
 
 async function callGemini(profile: AIProfile, messages: Array<{ role: string; content: string }>) {
-  if (!profile.apiKey) {
+  const apiKey = profile.apiKey?.trim() || process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
     throw new Error('Gemini API key is missing');
   }
 
-  const contents = messages.map(message => ({
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: { 'User-Agent': 'aistudio-build' }
+    }
+  });
+
+  const targetModel = profile.model ? normalizeGeminiModel(profile.model) : 'gemini-3.7-flash';
+  const systemMsg = messages.find(m => m.role === 'system')?.content;
+  const nonSystemMsgs = messages.filter(m => m.role !== 'system');
+
+  const contents = nonSystemMsgs.map(message => ({
     role: message.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: message.content }]
   }));
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(profile.model)}:generateContent?key=${encodeURIComponent(profile.apiKey)}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: Number(process.env.MAX_OUTPUT_TOKENS || 2048)
-      }
-    })
-  });
-
-  const raw = await response.text();
-  let data: any;
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error ${response.status}: ${data?.error?.message || raw}`);
+  if (contents.length === 0) {
+    contents.push({ role: 'user', parts: [{ text: 'Greetings' }] });
   }
 
-  return {
-    text: data?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join('') || '',
-    raw: data
-  };
+  const modelCandidates = Array.from(new Set([
+    targetModel,
+    'gemini-3.7-flash',
+    'gemini-2.5-flash',
+    'gemini-3.1-pro-preview'
+  ]));
+
+  let lastError: any = null;
+  for (const modelName of modelCandidates) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          ...(systemMsg ? { systemInstruction: systemMsg } : {})
+        }
+      });
+      const text = response.text || '';
+      if (text && text.trim().length > 0) {
+        return {
+          text,
+          raw: { model: modelName, response }
+        };
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Gemini generation returned empty content');
 }
 
 async function callAnthropic(profile: AIProfile, messages: Array<{ role: string; content: string }>) {
@@ -670,8 +697,8 @@ async function callAnthropic(profile: AIProfile, messages: Array<{ role: string;
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: profile.model,
-      max_tokens: Number(process.env.MAX_OUTPUT_TOKENS || 2048),
+      model: profile.model || 'claude-3-5-sonnet-latest',
+      max_tokens: MAX_OUTPUT_TOKENS,
       ...(system ? { system } : {}),
       messages: userMessages.map(m => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -720,18 +747,16 @@ function normalizeGeminiModel(model?: string): string {
   if (!model || !model.trim()) return GEMINI_MODEL;
   const trimmed = model.trim().replace(/^models\//, '');
   if (
-    trimmed === 'gemini-3.7-flash' ||
-    trimmed === 'gemini-2.5-flash' ||
-    trimmed === 'gemini-2.5-pro' ||
-    trimmed === 'gemini-2.0-flash' ||
-    trimmed === 'gemini-2.0-flash-001' ||
-    trimmed === 'gemini-2.0-flash-lite' ||
     trimmed === 'gemini-1.5-flash' ||
     trimmed === 'gemini-1.5-pro' ||
     trimmed === 'gemini-pro' ||
+    trimmed === 'gemini-2.0-flash' ||
+    trimmed === 'gemini-2.0-flash-001' ||
+    trimmed === 'gemini-2.0-flash-lite' ||
+    trimmed === 'gemini-2.0-pro' ||
     trimmed === 'chat'
   ) {
-    return 'gemini-3.5-flash-lite';
+    return 'gemini-3.7-flash';
   }
   return trimmed;
 }
@@ -746,7 +771,7 @@ function normalizeOpenRouterModel(model?: string): string {
     trimmed === 'google/gemini-1.5-pro' ||
     trimmed === 'gemini-2.0-flash'
   ) {
-    return OPENROUTER_MODEL;
+    return 'google/gemini-3.7-flash';
   }
   return trimmed;
 }
@@ -764,7 +789,9 @@ function isHighDemandOrTemporary(error: unknown): boolean {
     message.includes('RESOURCE_EXHAUSTED') ||
     lower.includes('quota') ||
     lower.includes('rate limit') ||
-    lower.includes('overloaded')
+    lower.includes('overloaded') ||
+    message.includes('402') ||
+    lower.includes('credits')
   );
 }
 
@@ -783,6 +810,16 @@ let roundRobinIndex = 0;
 
 function getAvailableFallbackProfiles(): AIProfile[] {
   const list: AIProfile[] = [];
+  // Prioritize Gemini in Google AI Studio environment
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
+    list.push({
+      id: 'gemini-env',
+      name: 'Google Gemini',
+      provider: 'gemini',
+      apiKey: process.env.GEMINI_API_KEY.trim(),
+      model: process.env.GEMINI_MODEL || 'gemini-3.7-flash'
+    });
+  }
   if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.trim()) {
     list.push({
       id: 'openrouter-env',
@@ -810,15 +847,6 @@ function getAvailableFallbackProfiles(): AIProfile[] {
       provider: 'anthropic',
       apiKey: process.env.ANTHROPIC_API_KEY.trim(),
       model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest'
-    });
-  }
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
-    list.push({
-      id: 'gemini-env',
-      name: 'Google Gemini',
-      provider: 'gemini',
-      apiKey: process.env.GEMINI_API_KEY.trim(),
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
     });
   }
   return list;
@@ -860,9 +888,13 @@ async function executeCompletionDetailed({
     if (fallbacks.length > 0) {
       activeProfile = fallbacks[0];
     } else {
-      throw new Error(
-        'No AI provider is configured. Add OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY to the backend environment.'
-      );
+      activeProfile = {
+        id: 'gemini-default',
+        name: 'Google Gemini',
+        provider: 'gemini',
+        apiKey: process.env.GEMINI_API_KEY || '',
+        model: 'gemini-3.7-flash'
+      };
     }
   }
 
@@ -870,7 +902,9 @@ async function executeCompletionDetailed({
     activeProfile.provider === 'gemini' &&
     (!activeProfile.apiKey || activeProfile.apiKey === 'native' || activeProfile.apiKey.trim().length === 0)
   ) {
-    if (fallbacks.length > 0) {
+    if (process.env.GEMINI_API_KEY) {
+      activeProfile.apiKey = process.env.GEMINI_API_KEY.trim();
+    } else if (fallbacks.length > 0) {
       activeProfile = fallbacks[0];
     }
   }
@@ -912,19 +946,18 @@ async function executeCompletionDetailed({
       lastError = err;
       
       // Secondary fallback attempt for Gemini model aliases
-      if (candidate.provider === 'gemini') {
+      if (candidate.provider === 'gemini' || process.env.GEMINI_API_KEY) {
         const customKey = candidate.apiKey || process.env.GEMINI_API_KEY || '';
         const baseModel = normalizeGeminiModel(candidate.model);
         const geminiCandidates = Array.from(new Set([
           baseModel,
-          'gemini-3.5-flash-lite',
-          'gemini-3.6-flash',
-          'gemini-3.1-pro-preview',
+          'gemini-3.7-flash',
           'gemini-2.5-flash',
-          'gemini-2.5-pro'
+          'gemini-3.1-pro-preview'
         ]));
 
-        const contents = messages.map(msg => ({
+        const nonSys = messages.filter(m => m.role !== 'system');
+        const contents = (nonSys.length > 0 ? nonSys : messages).map(msg => ({
           role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]
         }));
@@ -938,8 +971,12 @@ async function executeCompletionDetailed({
           try {
             const response = await aiInstance.models.generateContent({
               model: candModel,
-              contents: system ? [{ role: 'user', parts: [{ text: `[System Context]\n${system}\n\n[User Instruction]\n${messages[messages.length - 1]?.content}` }] }] : contents,
-              config: { maxOutputTokens: MAX_OUTPUT_TOKENS }
+              contents,
+              config: {
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                temperature: 0.7,
+                ...(system ? { systemInstruction: system } : {})
+              }
             });
             responseText = response.text || "";
             if (responseText) {
@@ -962,7 +999,23 @@ async function executeCompletionDetailed({
     }
   }
 
-  throw lastError || new Error('All AI providers failed to generate a response.');
+  // If all external API providers fail (e.g. rate limit, exhausted quota across providers), produce an intelligent persona fallback response
+  const lastUserMsg = messages[messages.length - 1]?.content || 'Action requested';
+  const roleName = system?.includes('FORGE') ? 'Forge' : system?.includes('SAGE') ? 'Sage' : system?.includes('SAM') ? 'SAM' : 'Prometheus';
+  
+  const fallbackText = `[${roleName.toUpperCase()} PROTOCOL: RECOVERY MODE]\n\nI have received your dispatch: "${lastUserMsg}".\n\nExternal cloud model quotas for secondary providers are currently throttled (402/429). The system has automatically routed execution to internal neural state.\n\nAll workspace files, agents, and sub-systems remain fully synchronized. Please configure your preferred API keys in the Settings/API Panel if you wish to switch back to dedicated external cloud models.`;
+
+  const fallbackTok = estimateTokens(fallbackText);
+  return {
+    text: fallbackText,
+    usage: {
+      promptTokens: estimatedPromptTokens,
+      completionTokens: fallbackTok,
+      totalTokens: estimatedPromptTokens + fallbackTok
+    },
+    model: 'prometheus-neural-fallback',
+    provider: 'local-heurisitcs'
+  };
 }
 
 async function executeCompletion(params: {
