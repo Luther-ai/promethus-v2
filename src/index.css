@@ -1,0 +1,294 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Shippori+Mincho:wght@500;700;900&family=Yuji+Boku&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #030607; 
+  --bg-glass: rgba(6, 10, 12, 0.88); 
+  --panel: rgba(8, 14, 16, 0.94);
+  --line: rgba(255, 255, 255, 0.14); 
+  --line-bright: rgba(255, 255, 255, 0.45);
+  --ink: #f1f5f9; 
+  --muted: #8b9bb4; 
+  --cyan: #38bdf8; 
+  --cyan-glow: rgba(56, 189, 248, 0.35);
+  --violet: #c084fc; 
+  --violet-glow: rgba(192, 132, 252, 0.35);
+  --amber: #fbbf24; 
+  --amber-glow: rgba(251, 191, 36, 0.35);
+  --green: #4ade80; 
+  --green-glow: rgba(74, 222, 128, 0.35);
+  --blue: #60a5fa;
+  --blue-glow: rgba(96, 165, 250, 0.35);
+  --danger: #ef4444;
+  --vermilion: #ff3838;
+  --gold: #f59e0b;
+}
+
+/* Neo-Edo Sumi-e Theme Classes */
+body[data-theme="kuro"] {
+  --bg: #020404;
+  --panel: rgba(6, 9, 10, 0.96);
+  --line: rgba(255, 255, 255, 0.18);
+  --ink: #ffffff;
+  --muted: #94a3b8;
+}
+
+body[data-theme="cinnabar"] {
+  --bg: #070304;
+  --panel: rgba(18, 8, 10, 0.96);
+  --line: rgba(255, 56, 56, 0.25);
+  --cyan: #ff3838;
+  --cyan-glow: rgba(255, 56, 56, 0.4);
+  --ink: #fff1f2;
+}
+
+body[data-theme="gold"] {
+  --bg: #060502;
+  --panel: rgba(16, 13, 6, 0.96);
+  --line: rgba(245, 158, 11, 0.28);
+  --cyan: #f59e0b;
+  --cyan-glow: rgba(245, 158, 11, 0.4);
+  --ink: #fefce8;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: #020404;
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  overflow-x: hidden;
+}
+
+/* Woodblock Sumi-e Canvas Background with Cloud Motifs */
+body {
+  background: radial-gradient(circle at 50% 25%, #0d1518 0%, #04080a 55%, #010203 100%);
+}
+body:before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%),
+              linear-gradient(90deg, rgba(255,255,255,0.015), rgba(255,56,56,0.01), rgba(255,255,255,0.015));
+  background-size: 100% 3px, 4px 100%;
+  opacity: 0.7;
+}
+body:after {
+  content: ""; position: fixed; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(circle at 50% 40%, #000 20%, transparent 85%);
+}
+
+h1, h2, h3, .display {
+  font-family: 'Cinzel', 'Shippori Mincho', serif;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+button, input, select {
+  font: inherit;
+}
+button { cursor: pointer; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: rgba(2,8,7,0.6); }
+::-webkit-scrollbar-thumb { background: var(--cyan); opacity: .5; border-radius: 3px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@property --current-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --orbit-radius {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 230px;
+}
+
+@keyframes agentOrbit {
+  from { --current-angle: var(--angle); }
+  to { --current-angle: calc(var(--angle) + 360deg); }
+}
+
+@keyframes orbitGlow {
+  0%, 100% { box-shadow: 0 0 5px currentColor, inset 0 0 2px currentColor; }
+  50% { box-shadow: 0 0 22px currentColor, inset 0 0 8px currentColor; }
+}
+
+@keyframes hexPulse {
+  0%, 100% { box-shadow: 0 0 10px currentColor, inset 0 0 5px currentColor; transform: scale(1); }
+  50% { box-shadow: 0 0 28px currentColor, inset 0 0 12px currentColor; transform: scale(1.15); }
+}
+
+@keyframes centerPulse {
+  0%, 100% { box-shadow: 0 0 35px currentColor, inset 0 0 20px currentColor; transform: scale(1.35); }
+  50% { box-shadow: 0 0 60px currentColor, inset 0 0 30px currentColor; transform: scale(1.45); }
+}
+@keyframes corePulse { 50% { transform: scale(1.025); } }
+@keyframes bootPulse {
+  0%, 100% { box-shadow: 0 0 40px var(--cyan-glow); transform: scale(1); }
+  50% { box-shadow: 0 0 90px rgba(53,242,223,0.6); transform: scale(1.04); }
+}
+
+/* Boot Screen */
+#boot { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #010504; transition: 1s cubic-bezier(0.16, 1, 0.3, 1); }
+#boot.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.boot-inner { text-align: center; }
+.boot-glyph {
+  width: 140px; height: 140px; margin: auto;
+  background: radial-gradient(circle, rgba(53,242,223,0.12) 0%, transparent 70%);
+  border: 1px solid var(--cyan); border-radius: 50%; display: grid; place-items: center;
+  box-shadow: 0 0 60px var(--cyan-glow), inset 0 0 20px var(--cyan-glow);
+  animation: bootPulse 2.5s infinite ease-in-out;
+}
+.boot-glyph span { font-size: 52px; color: var(--cyan); text-shadow: 0 0 24px var(--cyan); }
+.boot-inner p { margin: 24px 0 8px; color: var(--muted); letter-spacing: .4em; font-size: 10px; text-transform: uppercase; }
+.boot-inner h1 { margin: 0; font-size: 36px; letter-spacing: .15em; background: linear-gradient(180deg, #fff, var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.boot-sub { color: var(--muted); font-size: 9.5px; letter-spacing: .3em; margin-top: 8px; }
+
+/* Main Layout */
+#app { opacity: 0; transform: translateY(15px); transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+#app.show { opacity: 1; transform: none; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 8px 4px 20px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 38px; height: 38px; border: 1px solid var(--cyan); border-radius: 50%; display: grid; place-items: center; color: var(--cyan);
+  box-shadow: 0 0 20px var(--cyan-glow), inset 0 0 10px rgba(53,242,223,0.2);
+  background: rgba(53,242,223,0.05); font-size: 16px;
+}
+.brand-text .brand-name { font-size: 15px; letter-spacing: .35em; line-height: 1.2; color: #fff; }
+.brand-text .brand-sub { font-size: 8px; color: var(--muted); letter-spacing: .25em; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.sys-online { display: flex; align-items: center; gap: 8px; font-size: 9.5px; letter-spacing: .18em; color: var(--muted); background: rgba(53,242,223,0.03); padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; }
+.sys-online b { color: var(--green); }
+.sys-online .led { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+.btn {
+  border: 1px solid var(--line); background: rgba(6,22,19,0.7); color: var(--ink);
+  padding: 10px 16px; border-radius: 8px; font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+  transition: all .25s ease; display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4); backdrop-filter: blur(10px);
+}
+.btn:hover, .btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(53,242,223,0.08); box-shadow: 0 0 20px var(--cyan-glow); }
+.btn.danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,107,107,0.08); box-shadow: 0 0 20px rgba(255,107,107,0.3); }
+
+/* Sidebar Drawer */
+.side {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 320px; z-index: 90; display: flex; flex-direction: column; gap: 12px; padding: 24px 18px;
+  background: rgba(2, 10, 8, 0.96); border-right: 1px solid var(--line); box-shadow: 25px 0 70px rgba(0,0,0,0.7);
+  backdrop-filter: blur(24px); transform: translateX(-105%); transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1); overflow-y: auto;
+}
+.side.open { transform: translateX(0); }
+#drawerBackdrop {
+  position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+  opacity: 0; visibility: hidden; transition: all .3s ease;
+}
+body.sidebar-open #drawerBackdrop { opacity: 1; visibility: visible; }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(16px);
+  overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 13px 16px;
+  border-bottom: 1px solid var(--line); font-size: 10px; letter-spacing: .2em; color: var(--muted); text-transform: uppercase;
+  background: rgba(0,0,0,0.25);
+}
+
+.stage {
+  min-height: calc(100vh - 160px); position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 22px;
+  background: radial-gradient(circle at 50% 45%, rgba(53,242,223,0.06) 0%, rgba(3,12,10,0.5) 60%, rgba(1,5,4,0.9) 100%);
+  border: 1px solid rgba(53,242,223,0.1); box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+}
+
+.circle-container {
+  --agent-radius: 230px;
+}
+@media (max-width: 620px) {
+  .circle-container { --agent-radius: 36vw; }
+}
+
+.ring {
+  position: absolute; border-radius: 50%; border: 1px solid var(--line);
+}
+.r1 { inset: 2%; animation: spin 80s linear infinite; }
+.r2 { inset: 9%; border-style: dashed; animation: spin 54s linear infinite reverse; }
+.r3 { inset: 16%; animation: spin 120s linear infinite; }
+.r4 { inset: 23%; }
+.rune-ring { position: absolute; inset: 1%; animation: spin 170s linear infinite; }
+.rune { position: absolute; color: var(--line); font-size: 13px; font-weight: bold; }
+
+.orbit-node {
+  position: absolute; left: 50%; top: 50%; width: 96px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  
+  /* Initial values and setup */
+  --orbit-radius: var(--agent-radius);
+  --current-angle: var(--angle);
+  
+  /* Separate transform from animation so we can transition the radius smoothly */
+  transform: translate(-50%, -50%) rotate(var(--current-angle)) translateY(calc(-1 * var(--orbit-radius))) rotate(calc(-1 * var(--current-angle)));
+  
+  /* Transition the radius and transform */
+  transition: --orbit-radius 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.6s;
+  
+  /* Animate only the current angle */
+  animation: agentOrbit var(--speed, 60s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  z-index: 5;
+}
+
+.orbit-node.active-center {
+  --orbit-radius: 0px;
+  z-index: 20;
+}
+.orbit-node.active-center .hex-shape {
+  transform: scale(1.35);
+  box-shadow: 0 0 35px currentColor, inset 0 0 20px currentColor;
+}
+
+.hex-shape {
+  width: 48px; height: 48px;
+  border-radius: 50%; /* Using circle instead of hex for simplicity unless clip-path is used, but ok */
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700;
+  font-size: 18px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); cursor: pointer; transition: 0.2s;
+  border: 1px solid var(--cyan);
+}
+.orbit-node:not(.active-center) .hex-shape:not(.working) {
+  animation: orbitGlow 4s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+.orbit-node:not(.active-center) .hex-shape:hover { 
+  transform: scale(1.15); 
+}
+.hex-shape.working { animation: hexPulse 0.8s ease-in-out infinite; }
+.orbit-node.active-center .hex-shape.working { animation: centerPulse 0.8s ease-in-out infinite; }
+
+.core-center {
+  background: rgba(4,15,13,0.8);
+  border: 1px solid var(--line-bright);
+  box-shadow: 0 0 30px var(--cyan-glow), inset 0 0 20px var(--cyan-glow);
+  backdrop-filter: blur(8px);
+}
+.core-center.listening { box-shadow: 0 0 30px var(--green-glow), inset 0 0 20px var(--green-glow); border-color: var(--green); animation: corePulse 0.7s ease-in-out infinite; }
+.core-center.speaking { box-shadow: 0 0 30px var(--violet-glow), inset 0 0 20px var(--violet-glow); border-color: var(--violet); animation: corePulse 0.48s ease-in-out infinite; }
+.core-center.thinking { box-shadow: 0 0 30px var(--amber-glow), inset 0 0 20px var(--amber-glow); border-color: var(--amber); animation: corePulse 1s ease-in-out infinite; }
+.core-center.error { box-shadow: 0 0 30px rgba(255,107,107,0.3), inset 0 0 20px rgba(255,107,107,0.3); border-color: var(--danger); }
+
+.mic.on {
+  background: rgba(124,255,107,0.1); color: var(--green); border-color: var(--green); box-shadow: 0 0 15px var(--green-glow);
+}
+.mic.interrupt { background: rgba(255,179,71,0.1); color: var(--amber); border-color: var(--amber); box-shadow: 0 0 15px var(--amber-glow); }
+
+.level-bar i {
+  display: block; height: 100%; width: 0;
+  background: var(--cyan);
+}
+

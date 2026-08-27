@@ -1,0 +1,10 @@
+{
+  "name": "BuildEngine Prometheus",
+  "description": "Neo-Edo Cyber AI Board with Sumi-e woodblock aesthetics, 2D breakroom arcade mini-games, selective agent summoning, and real-time multi-device co-pilot.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
